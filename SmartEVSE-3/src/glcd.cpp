@@ -30,6 +30,7 @@
 #include "glcd.h"
 #include "utils.h"
 #include "meter.h"
+#include "lang_nl.h"
 #include "network_common.h"
 #include "font.cpp"
 #include "font2.cpp"
@@ -90,76 +91,16 @@ unsigned char activeRow;
 extern Switch_Phase_t Switching_Phases_C2;
 extern uint8_t RCMTestCounter;
 
-// Return the Dutch text when the Dutch language is selected, otherwise the English text
-static inline const char *Tr(const char *en, const char *nl) {
-    return Language ? nl : en;
+// Return the text in the selected language; English texts without a translation are returned unchanged
+static const char *Tr(const char *en) {
+    if (Language) {
+        for (const auto &e : LangNL) {
+            if (!strcmp(e.en, en)) return e.nl;
+        }
+    }
+    return en;
 }
 
-// Dutch menu labels and help texts, in the same order as MenuStr in esp32.h
-// LCD label max 9 characters, help text max 51 characters
-const struct {
-    char LCD[10];
-    char Desc[52];
-} MenuStrNL[MENU_EXIT + 1] = {
-    {"", "Niet in menu"},
-    {"", "Houd 2 sec vast"},
-
-    // Node specific configuration
-    {"CONFIG",   "Vaste kabel of Type 2 contactdoos"},
-    {"SLOT",     "Type kabelvergrendeling"},
-    {"MIN",      "MIN laadstroom die de auto accepteert (per fase)"},
-    {"MAX",      "MAX laadstroom voor deze EVSE (per fase)"},
-    {"DELEN",    "Vermogen delen tussen meerdere SmartEVSEs (2-8)"},
-    {"SCHAKEL",  "Functie van schakelaar op pin SW"},
-    {"RCMON",    "Lekstroombewaking op pin RCM"},
-    {"RFID",     "RFID-lezer, passen leren/verwijderen"},
-    {"EV METER", "Type EV-energiemeter"},
-    {"EV ADRES", "Adres van EV-energiemeter"},
-    {"EV HOST",  "Deel van mDNS-hostnaam van EV-energiemeter"},
-
-    // System configuration
-    {"MODUS",    "Normaal, Slim of Zon laadmodus"},
-    {"GROEP",    "Max stroom van de EVSE-groep"},
-    {"NET",      "Type net waarop de Sensorbox is aangesloten"},
-    {"SB2 WIFI", "Sensorbox-2 met WiFi verbinden"},
-    {"AANSL",    "Max stroom van de aansluiting (per fase)"},
-    {"START",    "Startstroom bij overschot (som van fasen)"},
-    {"STOP",     "Stop met zonneladen na deze tijd op 6A"},
-    {"IMPORT",   "Toegestane netstroom bij zonneladen (som fasen)"},
-    {"AANSL MET","Type energiemeter van de aansluiting"},
-    {"AANSL ADR","Adres van energiemeter van de aansluiting"},
-    {"AANSL HST","Deel van mDNS-hostnaam van aansluitingsmeter"},
-    {"GROEP MET","Type groepsenergiemeter"},
-    {"GROEP ADR","Adres van groepsenergiemeter"},
-    {"GROEP HST","Deel van mDNS-hostnaam van groepsmeter"},
-    {"BYTE VOLG","Bytevolgorde van eigen energiemeter"},
-    {"DATATYPE", "Datatype van eigen energiemeter"},
-    {"FUNCTIE",  "Modbus-functie van eigen energiemeter"},
-    {"SPAN REG", "Register spanning (V) van eigen energiemeter"},
-    {"SPAN DEEL","Deler spanning (V) van eigen energiemeter"},
-    {"STRM REG", "Register stroom (A) van eigen energiemeter"},
-    {"STRM DEEL","Deler stroom (A) van eigen energiemeter"},
-    {"VERM REG", "Register vermogen (W) van eigen energiemeter"},
-    {"VERM DEEL","Deler vermogen (W) van eigen energiemeter"},
-    {"ENER REG", "Register energie (kWh) van eigen energiemeter"},
-    {"ENER DEEL","Deler energie (kWh) van eigen energiemeter"},
-    {"LEES MAX", "Max registers per keer van eigen energiemeter"},
-    {"WIFI",     "SmartEVSE met WiFi verbinden"},
-    {"AUTO UPD", "Automatische firmware-update"},
-    {"CONTACT 2","Gedrag van Contactor2 (C2)"},
-    {"MAX TEMP", "Maximale temperatuur van de EVSE-module"},
-    {"CAP MODUS","Modus capaciteitstarief-limiet"},
-    {"CAPACIT",  "Capaciteitslimiet op som van aansluitstroom (A)"},
-    {"CAP STOP", "Stop laden door capaciteitslimiet na X minuten"},
-    {"LCD PIN",  "Pincode om LCD via webinterface te bedienen"},
-    {"APP PIN",  "Koppel-PIN maken voor de SmartEVSE app"},
-    {"APP SERVR","Cloudverbinding voor functies van SmartEVSE app"},
-    {"LED MODUS","LED-kleuren: Standaard of Openbaar"},
-    {"", "Houd 2 sec vast om laden te stoppen"},
-    {"", "Houd 2 sec vast om laden te starten"},
-
-    {"TERUG", "TERUG"}
-};
 
 // Menu label in the selected language (falls back to English when no translation is present)
 static const char *MenuLCD(uint8_t nav) {
@@ -176,11 +117,9 @@ static const char *MenuDesc(uint8_t nav) {
 // strftime with Dutch day and month abbreviations when the Dutch language is selected
 static size_t strftimeLang(char *s, size_t max, const char *format, const struct tm *tm) {
     if (!Language) return strftime(s, max, format, tm);
-    static const char Days[7][3] = {"zo", "ma", "di", "wo", "do", "vr", "za"};
-    static const char Months[12][4] = {"jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"};
     String Format = format;
-    Format.replace("%a", Days[tm->tm_wday % 7]);
-    Format.replace("%b", Months[tm->tm_mon % 12]);
+    Format.replace("%a", DaysNL[tm->tm_wday % 7]);
+    Format.replace("%b", MonthsNL[tm->tm_mon % 12]);
     return strftime(s, max, Format.c_str(), tm);
 }
 
@@ -526,7 +465,7 @@ void GLCDHelp(void)                                                             
 // print starting time when delayed charging
 #define STRLEN 26
 void printStartingTime(char *Str) {
-    GLCD_print_buf2(2, Tr("STARTING @", "START OM"));
+    GLCD_print_buf2(2, Tr("STARTING @"));
 #define _24H 24*60*60
 #define _WEEK 7*_24H
     String StrFormat;
@@ -572,56 +511,56 @@ void GLCD(void) {
         GLCD_buffer_clr();
         // top line
         if (LCDNav == MENU_RFIDREADER && SubMenu) {
-            if (RFIDstatus == 2) GLCD_write_buf_str(0, 0, Tr("Card Stored", "Pas opgeslagen"), GLCD_ALIGN_LEFT);
-            else if (RFIDstatus == 3) GLCD_write_buf_str(0, 0, Tr("Card Deleted", "Pas verwijderd"), GLCD_ALIGN_LEFT);
-            else if (RFIDstatus == 4) GLCD_write_buf_str(0, 0, Tr("Card already stored!", "Pas al opgeslagen!"), GLCD_ALIGN_LEFT);
-            else if (RFIDstatus == 5) GLCD_write_buf_str(0, 0, Tr("Card not in storage!", "Pas niet gevonden!"), GLCD_ALIGN_LEFT);
-            else if (RFIDstatus == 6) GLCD_write_buf_str(0, 0, Tr("Card storage full!", "Passengeheugen vol!"), GLCD_ALIGN_LEFT);
+            if (RFIDstatus == 2) GLCD_write_buf_str(0, 0, Tr("Card Stored"), GLCD_ALIGN_LEFT);
+            else if (RFIDstatus == 3) GLCD_write_buf_str(0, 0, Tr("Card Deleted"), GLCD_ALIGN_LEFT);
+            else if (RFIDstatus == 4) GLCD_write_buf_str(0, 0, Tr("Card already stored!"), GLCD_ALIGN_LEFT);
+            else if (RFIDstatus == 5) GLCD_write_buf_str(0, 0, Tr("Card not in storage!"), GLCD_ALIGN_LEFT);
+            else if (RFIDstatus == 6) GLCD_write_buf_str(0, 0, Tr("Card storage full!"), GLCD_ALIGN_LEFT);
             else glcd_clrln(0, 0x00);                                           // Clear line
             LCDTimer = 0;                                                       // reset timer, so it will not exit the menu when learning/deleting cards
         // Sensorbox 2 WiFi settings
         } else if (LCDNav == MENU_SB2_WIFI) {
             // wait for sensorbox to switch to selected mode
             if ( (SB2.WIFImode != SB2_WIFImode) && SubMenu && SB2_WIFImode !=2) {
-                GLCD_write_buf_str(0,0, Tr("one moment please...", "even geduld..."), GLCD_ALIGN_LEFT);
+                GLCD_write_buf_str(0,0, Tr("one moment please..."), GLCD_ALIGN_LEFT);
 
             } else if (SB2_WIFImode == 1) {         // Enable WiFi on Sensorbox 2
 
                 if (SB2.WiFiConnected) {
                     sprintf(Str, "SB2: %u.%u.%u.%u",SB2.IP[0],SB2.IP[1],SB2.IP[2],SB2.IP[3]);
                     GLCD_write_buf_str(0,0, Str, GLCD_ALIGN_LEFT);
-                } else GLCD_write_buf_str(0,0, Tr("Not connected to WiFi", "Geen WiFi-verbinding"), GLCD_ALIGN_LEFT);
+                } else GLCD_write_buf_str(0,0, Tr("Not connected to WiFi"), GLCD_ALIGN_LEFT);
 
             } else if (SB2_WIFImode == 2) {         // Enable Portal on Sensorbox 2
                 if (SubMenu) {
-                    sprintf(Str, "%s", Tr("O button starts portal", "O-knop start portal"));
+                    sprintf(Str, "%s", Tr("O button starts portal"));
                     GLCD_write_buf_str(0,0, Str, GLCD_ALIGN_LEFT);
                 } else {
                     // Show Portal Password
-                    sprintf(Str, Tr("Portal PW: %s", "Portal ww: %s"), SB2.APpassword);
+                    sprintf(Str, Tr("Portal PW: %s"), SB2.APpassword);
                     GLCD_write_buf_str(0,0, Str, GLCD_ALIGN_LEFT);
                 }
                 LCDTimer = 0;                                                       // reset timer, so it will not exit the menu when setting up WiFi
             }        
         // Show extra Contactor 2 information on top row
         } else if (LCDNav == MENU_C2 && SubMenu) {
-            if (EnableC2 == NOT_PRESENT)     GLCD_write_buf_str(0, 0, Tr("Three-phase Charging", "Driefasig laden"), GLCD_ALIGN_LEFT);
-            else if (EnableC2 == ALWAYS_OFF) GLCD_write_buf_str(0, 0, Tr("Single-phase Charging", "Enkelfasig laden"), GLCD_ALIGN_LEFT);
-            else if (EnableC2 == SOLAR_OFF)  GLCD_write_buf_str(0, 0, Tr("Solar 1P - Smart 3P", "Zon 1P - Slim 3P"), GLCD_ALIGN_LEFT);
-            else if (EnableC2 == ALWAYS_ON)  GLCD_write_buf_str(0, 0, Tr("Three-phase Charging", "Driefasig laden"), GLCD_ALIGN_LEFT);
-            else if (EnableC2 == AUTO)       GLCD_write_buf_str(0, 0, Tr("Auto 3P <> 1P Charging", "Auto 3P <> 1P laden"), GLCD_ALIGN_LEFT);
+            if (EnableC2 == NOT_PRESENT)     GLCD_write_buf_str(0, 0, Tr("Three-phase Charging"), GLCD_ALIGN_LEFT);
+            else if (EnableC2 == ALWAYS_OFF) GLCD_write_buf_str(0, 0, Tr("Single-phase Charging"), GLCD_ALIGN_LEFT);
+            else if (EnableC2 == SOLAR_OFF)  GLCD_write_buf_str(0, 0, Tr("Solar 1P - Smart 3P"), GLCD_ALIGN_LEFT);
+            else if (EnableC2 == ALWAYS_ON)  GLCD_write_buf_str(0, 0, Tr("Three-phase Charging"), GLCD_ALIGN_LEFT);
+            else if (EnableC2 == AUTO)       GLCD_write_buf_str(0, 0, Tr("Auto 3P <> 1P Charging"), GLCD_ALIGN_LEFT);
         } else if (LCDNav == MENU_PAIRING && SubMenu) {
             sprintf(Str, "SmartEVSE-%u", serialnr);
             GLCD_write_buf_str(0,0, Str, GLCD_ALIGN_LEFT);
         } else if (LCDNav == MENU_APPSERVER && SubMenu) {
-            if (MQTTclientSmartEVSE.connected) GLCD_write_buf_str(0, 0, Tr("Connected to server", "Verbonden met server"), GLCD_ALIGN_LEFT);
-            else GLCD_write_buf_str(0, 0, Tr("No server connection", "Geen serververbinding"), GLCD_ALIGN_LEFT);
+            if (MQTTclientSmartEVSE.connected) GLCD_write_buf_str(0, 0, Tr("Connected to server"), GLCD_ALIGN_LEFT);
+            else GLCD_write_buf_str(0, 0, Tr("No server connection"), GLCD_ALIGN_LEFT);
         } else {
             // Display IP and time in top row (Ethernet takes priority over WiFi)
             uint8_t WIFImode = getItemValue(MENU_WIFI);
             if (EthHasIP) {
                 if (LCDNav == MENU_WIFI && WIFImode != 0) {
-                    GLCD_write_buf_str(0,0, Tr("Disconnect Eth first", "Ontkoppel eerst Eth"), GLCD_ALIGN_LEFT);
+                    GLCD_write_buf_str(0,0, Tr("Disconnect Eth first"), GLCD_ALIGN_LEFT);
                 } else {
                     sprintf(Str, "%s", ch390_get_ip());
                     GLCD_write_buf_str(0,0, Str, GLCD_ALIGN_LEFT);
@@ -637,15 +576,15 @@ void GLCD(void) {
                     if (LocalTimeSet) sprintf(Str, "%02u:%02u",timeinfo.tm_hour, timeinfo.tm_min);
                     else sprintf(Str, "--:--");
                     GLCD_write_buf_str(127,0, Str, GLCD_ALIGN_RIGHT);
-                } else GLCD_write_buf_str(0,0, Tr("Not connected to WiFi", "Geen WiFi-verbinding"), GLCD_ALIGN_LEFT);
+                } else GLCD_write_buf_str(0,0, Tr("Not connected to WiFi"), GLCD_ALIGN_LEFT);
 
             // When Wifi Setup is selected, show password and SSID of the Access Point
             } else if (WIFImode == 2) {
                 if (SubMenu && WiFi.getMode() != WIFI_AP_STA) {           // Do not show if AP_STA mode is started
-                    sprintf(Str, "%s", Tr("O button starts portal", "O-knop start portal"));
+                    sprintf(Str, "%s", Tr("O button starts portal"));
                     GLCD_write_buf_str(0,0, Str, GLCD_ALIGN_LEFT);
                 } else {
-                    sprintf(Str, Tr("Portal PW: %s", "Portal ww: %s"), APpassword.c_str());
+                    sprintf(Str, Tr("Portal PW: %s"), APpassword.c_str());
                     GLCD_write_buf_str(0,0, Str, GLCD_ALIGN_LEFT);
                 }
                 LCDTimer = 0;                                                   // reset timer, so we will not exit the menu while setting up WiFi
@@ -674,46 +613,46 @@ void GLCD(void) {
 
         if (ErrorFlags & (CT_NOCOMM | EV_NOCOMM | CIRCUIT_NOCOMM)) {                             // No serial communication for 10 seconds
             if (ErrorFlags & EV_NOCOMM) {
-                GLCD_print_buf2(0, Tr("CAN'T READ", "LEESFOUT"));
-                GLCD_print_buf2(2, Tr("EV METER", "EV-METER"));
+                GLCD_print_buf2(0, Tr("CAN'T READ"));
+                GLCD_print_buf2(2, Tr("EV METER"));
             } else if (ErrorFlags & CIRCUIT_NOCOMM) {
-                GLCD_print_buf2(0, Tr("CAN'T READ", "LEESFOUT"));
-                GLCD_print_buf2(2, Tr("CIRCUIT METER", "GROEPMETER"));
+                GLCD_print_buf2(0, Tr("CAN'T READ"));
+                GLCD_print_buf2(2, Tr("CIRCUIT METER"));
             } else if (MainsMeter.Type == EM_API || MainsMeter.Type == EM_HOMEWIZARD) {
-                GLCD_print_buf2(0, Tr("CAN'T READ", "LEESFOUT"));
-                GLCD_print_buf2(2, Tr("MAINS METER", "NETMETER"));
+                GLCD_print_buf2(0, Tr("CAN'T READ"));
+                GLCD_print_buf2(2, Tr("MAINS METER"));
             } else {
-                GLCD_print_buf2(0, Tr("ERROR NO", "GEEN"));
-                GLCD_print_buf2(2, Tr("SERIAL COM", "VERBINDING"));
+                GLCD_print_buf2(0, Tr("ERROR NO"));
+                GLCD_print_buf2(2, Tr("SERIAL COM"));
             }           
-            GLCD_print_buf2(4, Tr("CHECK CFG", "CONTR. CFG"));
-            GLCD_print_buf2(6, Tr("OR WIRING", "OF DRADEN"));
+            GLCD_print_buf2(4, Tr("CHECK CFG"));
+            GLCD_print_buf2(6, Tr("OR WIRING"));
             return;
         } else if (ErrorFlags & TEMP_HIGH) {                                    // Temperature reached 65C
-            GLCD_print_buf2(0, Tr("HIGH TEMP", "TE HEET"));
-            GLCD_print_buf2(2, Tr("ERROR", "FOUT"));
-            GLCD_print_buf2(4, Tr("CHARGING", "LADEN"));
-            GLCD_print_buf2(6, Tr("STOPPED", "GESTOPT"));
+            GLCD_print_buf2(0, Tr("HIGH TEMP"));
+            GLCD_print_buf2(2, Tr("ERROR"));
+            GLCD_print_buf2(4, Tr("CHARGING"));
+            GLCD_print_buf2(6, Tr("STOPPED"));
             return;
         } else if ((ErrorFlags & RCM_TRIPPED) && !(ErrorFlags & RCM_TEST)) {    // Residual Current Sensor tripped
             if (!LCDToggle) {
-                GLCD_print_buf2(0, Tr("RESIDUAL", "LEKSTROOM"));
-                GLCD_print_buf2(2, Tr("FAULT", "FOUT"));
-                GLCD_print_buf2(4, Tr("CURRENT", ""));
-                GLCD_print_buf2(6, Tr("DETECTED", "GEVONDEN"));
+                GLCD_print_buf2(0, Tr("RESIDUAL"));
+                GLCD_print_buf2(2, Tr("FAULT"));
+                GLCD_print_buf2(4, Tr("CURRENT"));
+                GLCD_print_buf2(6, Tr("DETECTED"));
             } else {
-                GLCD_print_buf2(0, Tr("PRESS", "DRUK OP"));
-                GLCD_print_buf2(2, Tr("BUTTON", "DE KNOP"));
-                GLCD_print_buf2(4, Tr("TO", "OM TE"));
-                GLCD_print_buf2(6, Tr("RESET", "RESETTEN"));
+                GLCD_print_buf2(0, Tr("PRESS"));
+                GLCD_print_buf2(2, Tr("BUTTON"));
+                GLCD_print_buf2(4, Tr("TO"));
+                GLCD_print_buf2(6, Tr("RESET"));
             }
             return;
         }
     }   // end of ERROR()                                                       // more specific error handling in the code below
 
     if (TestState == 80) {                                                      // Only used when testing the module
-        GLCD_print_buf2(2, Tr("IO Test", "IO-test"));
-        GLCD_print_buf2(4, Tr("Passed", "Geslaagd"));
+        GLCD_print_buf2(2, Tr("IO Test"));
+        GLCD_print_buf2(4, Tr("Passed"));
         return;
     }
 
@@ -731,95 +670,95 @@ void GLCD(void) {
             BacklightTimer = BACKLIGHT;
             switch(ocppGetTxNotification()) {
                 case MicroOcpp::TxNotification::Authorized:
-                    GLCD_print_buf2(2, Tr("ACCEPTED", "AKKOORD"));
-                    GLCD_print_buf2(4, Tr("RFID CARD", "RFID-PAS"));
+                    GLCD_print_buf2(2, Tr("ACCEPTED"));
+                    GLCD_print_buf2(4, Tr("RFID CARD"));
                     break;
                 case MicroOcpp::TxNotification::AuthorizationRejected:
                 case MicroOcpp::TxNotification::DeAuthorized:
-                    GLCD_print_buf2(2, Tr("INVALID", "ONGELDIGE"));
-                    GLCD_print_buf2(4, Tr("RFID CARD", "RFID-PAS"));
+                    GLCD_print_buf2(2, Tr("INVALID"));
+                    GLCD_print_buf2(4, Tr("RFID CARD"));
                     break;
                 case MicroOcpp::TxNotification::AuthorizationTimeout:
-                    GLCD_print_buf2(2, Tr("OFFLINE", "OFFLINE"));
-                    GLCD_print_buf2(4, Tr("TRY LATER", "LATER"));
+                    GLCD_print_buf2(2, Tr("OFFLINE"));
+                    GLCD_print_buf2(4, Tr("TRY LATER"));
                     break;
                 case MicroOcpp::TxNotification::ReservationConflict:
-                    GLCD_print_buf2(2, Tr("BLOCKED BY", "BEZET DOOR"));
-                    GLCD_print_buf2(4, Tr("RESERVATION", "RESERVERING"));
+                    GLCD_print_buf2(2, Tr("BLOCKED BY"));
+                    GLCD_print_buf2(4, Tr("RESERVATION"));
                     break;
                 case MicroOcpp::TxNotification::ConnectionTimeout:
-                    GLCD_print_buf2(2, Tr("TIMEOUT", "TIME-OUT"));
-                    GLCD_print_buf2(4, Tr("TRY AGAIN", "OPNIEUW"));
+                    GLCD_print_buf2(2, Tr("TIMEOUT"));
+                    GLCD_print_buf2(4, Tr("TRY AGAIN"));
                     break;
                 case MicroOcpp::TxNotification::RemoteStart:
                     if (!ocppIsConnectorPlugged()) {
-                        GLCD_print_buf2(2, Tr("PLUG IN", "SLUIT AUTO"));
-                        GLCD_print_buf2(4, Tr("VEHICLE", "AAN"));
+                        GLCD_print_buf2(2, Tr("PLUG IN"));
+                        GLCD_print_buf2(4, Tr("VEHICLE"));
                     }
                     break;
                 case MicroOcpp::TxNotification::StartTx:
-                    GLCD_print_buf2(2, Tr("STARTED", "GESTART"));
-                    GLCD_print_buf2(4, Tr("TRANSACTION", "TRANSACTIE"));
+                    GLCD_print_buf2(2, Tr("STARTED"));
+                    GLCD_print_buf2(4, Tr("TRANSACTION"));
                     break;
                 case MicroOcpp::TxNotification::StopTx:
-                    GLCD_print_buf2(2, Tr("STOPPED", "GESTOPT"));
-                    GLCD_print_buf2(4, Tr("TRANSACTION", "TRANSACTIE"));
+                    GLCD_print_buf2(2, Tr("STOPPED"));
+                    GLCD_print_buf2(4, Tr("TRANSACTION"));
                     break;
                 default:
                     break;
             }
         } else if (ErrorFlags & LESS_6A && AccessStatus == ON) {
-            GLCD_print_buf2(2, Tr("WAITING", "WACHTEN"));
-            GLCD_print_buf2(4, Tr("FOR POWER", "OP VERMOGEN"));
+            GLCD_print_buf2(2, Tr("WAITING"));
+            GLCD_print_buf2(4, Tr("FOR POWER"));
 #if MODEM
         } else if (State == STATE_MODEM_REQUEST || State == STATE_MODEM_WAIT || State == STATE_MODEM_DONE) {                                          // Modem states
 
             BacklightTimer = BACKLIGHT;
 
-            GLCD_print_buf2(2, Tr("MODEM", "MODEM"));
-            GLCD_print_buf2(4, Tr("COMM", "VERBINDING"));
+            GLCD_print_buf2(2, Tr("MODEM"));
+            GLCD_print_buf2(4, Tr("COMM"));
         } else if (State == STATE_MODEM_DENIED) {                               // Modem denied state
 
             BacklightTimer = BACKLIGHT;
 
-            GLCD_print_buf2(2, Tr("MODEM", "MODEM"));
-            GLCD_print_buf2(4, Tr("DENIED", "GEWEIGERD"));
+            GLCD_print_buf2(2, Tr("MODEM"));
+            GLCD_print_buf2(4, Tr("DENIED"));
 #endif
         } else if (State == STATE_C) {                                          // STATE C
             
             BacklightTimer = BACKLIGHT;
             
             if (GridRelayOpen)
-                GLCD_print_buf2(2, Tr("LIMITED", "BEPERKT"));
+                GLCD_print_buf2(2, Tr("LIMITED"));
             else
-                GLCD_print_buf2(2, Tr("CHARGING", "LADEN"));
+                GLCD_print_buf2(2, Tr("CHARGING"));
             sprintf(Str, "%u.%uA",Balanced[0] / 10, Balanced[0] % 10);
             GLCD_print_buf2(4, Str);
         } else {                                                                // STATE A and STATE B
             if (AccessStatus == ON) {
-                GLCD_print_buf2(2, Tr("READY TO", "KLAAR OM"));
-                sprintf(Str, Tr("CHARGE %u", "LADEN %u"), ChargeDelay);
+                GLCD_print_buf2(2, Tr("READY TO"));
+                sprintf(Str, Tr("CHARGE %u"), ChargeDelay);
                 if (ChargeDelay) {
                     // BacklightTimer = BACKLIGHT;
                 } else Str[6] = '\0';
                 GLCD_print_buf2(4, Str);
             } else if (AccessStatus == PAUSE) {
-                GLCD_print_buf2(2, Tr("PAUSE", "PAUZE"));
+                GLCD_print_buf2(2, Tr("PAUSE"));
             } else {
                 if (OcppMode &&                                  // OCPP enabled
                         (getItemValue(MENU_RFIDREADER) == 6 || getItemValue(MENU_RFIDREADER) == 0)) { // RFID in OCPP mode or disabled
                     switch (getChargePointStatus()) {
                         case ChargePointStatus_Available:
-                            GLCD_print_buf2(2, Tr("AVAILABLE", "BESCHIKBAAR"));
+                            GLCD_print_buf2(2, Tr("AVAILABLE"));
                             GLCD_print_buf2(4, (const char *) "");
                             break;
                         case ChargePointStatus_Preparing:
                             if (!ocppIsConnectorPlugged()) {
-                                GLCD_print_buf2(2, Tr("PLUG IN", "SLUIT AUTO"));
-                                GLCD_print_buf2(4, Tr("VEHICLE", "AAN"));
+                                GLCD_print_buf2(2, Tr("PLUG IN"));
+                                GLCD_print_buf2(4, Tr("VEHICLE"));
                             } else {
-                                GLCD_print_buf2(2, Tr("PLEASE", "AUTORISEER"));
-                                GLCD_print_buf2(4, Tr("AUTHORIZE", "A.U.B."));
+                                GLCD_print_buf2(2, Tr("PLEASE"));
+                                GLCD_print_buf2(4, Tr("AUTHORIZE"));
                             }
                             break;
                         case ChargePointStatus_Charging:
@@ -828,29 +767,29 @@ void GLCD(void) {
                             if (DelayedStartTime.epoch2) {
                                 printStartingTime(Str);
                             } else {
-                                GLCD_print_buf2(2, Tr("CHARGING", "LADEN"));
-                                GLCD_print_buf2(4, Tr("IN PROGRESS", "BEZIG"));
+                                GLCD_print_buf2(2, Tr("CHARGING"));
+                                GLCD_print_buf2(4, Tr("IN PROGRESS"));
                             }
                             break;
                         case ChargePointStatus_Finishing:
                             if (ocppLockingTxDefined()) {
-                                GLCD_print_buf2(2, Tr("UNLOCK BY", "ONTGRENDEL"));
-                                GLCD_print_buf2(4, Tr("RFID CARD", "MET RFID-PAS"));
+                                GLCD_print_buf2(2, Tr("UNLOCK BY"));
+                                GLCD_print_buf2(4, Tr("RFID CARD"));
                             } else {
-                                GLCD_print_buf2(2, Tr("FINISHED", "KLAAR MET"));
-                                GLCD_print_buf2(4, Tr("CHARGING", "LADEN"));
+                                GLCD_print_buf2(2, Tr("FINISHED"));
+                                GLCD_print_buf2(4, Tr("CHARGING"));
                             }
                             break;
                         case ChargePointStatus_Reserved:
-                            GLCD_print_buf2(2, Tr("RESERVED", "GERESERV."));
+                            GLCD_print_buf2(2, Tr("RESERVED"));
                             GLCD_print_buf2(4, (const char *) "");
                             break;
                         case ChargePointStatus_Unavailable:
-                            GLCD_print_buf2(2, Tr("OUT OF", "BUITEN"));
-                            GLCD_print_buf2(4, Tr("ORDER", "GEBRUIK"));
+                            GLCD_print_buf2(2, Tr("OUT OF"));
+                            GLCD_print_buf2(4, Tr("ORDER"));
                             break;
                         case ChargePointStatus_Faulted:
-                            GLCD_print_buf2(2, Tr("NO SERVICE", "STORING"));
+                            GLCD_print_buf2(2, Tr("NO SERVICE"));
                             GLCD_print_buf2(4, (const char *) "");
                             break;
                         default:
@@ -858,18 +797,18 @@ void GLCD(void) {
                     }
                 } else if (getItemValue(MENU_RFIDREADER)) {
                     if (RFIDstatus == 7) {
-                        GLCD_print_buf2(2, Tr("INVALID", "ONGELDIGE"));
-                        GLCD_print_buf2(4, Tr("RFID CARD", "RFID-PAS"));
+                        GLCD_print_buf2(2, Tr("INVALID"));
+                        GLCD_print_buf2(4, Tr("RFID CARD"));
                     } else {
-                        GLCD_print_buf2(2, Tr("PRESENT", "AANBIEDEN"));
-                        GLCD_print_buf2(4, Tr("RFID CARD", "RFID-PAS"));
+                        GLCD_print_buf2(2, Tr("PRESENT"));
+                        GLCD_print_buf2(4, Tr("RFID CARD"));
                     }
                 } else {
                     if (DelayedStartTime.epoch2) {
                         printStartingTime(Str);
                     } else {
-                        GLCD_print_buf2(2, Tr("ACCESS", "TOEGANG"));
-                        GLCD_print_buf2(4, Tr("DENIED", "GEWEIGERD"));
+                        GLCD_print_buf2(2, Tr("ACCESS"));
+                        GLCD_print_buf2(4, Tr("DENIED"));
                     }
                 }
             }
@@ -975,25 +914,25 @@ void GLCD(void) {
         glcd_clrln(4, 0);                                                       // Clear line 4
         if (ErrorFlags & LESS_6A) {
             if (!LCDToggle) {
-                GLCD_print_buf2(5, Tr("WAITING", "WACHTEN"));
+                GLCD_print_buf2(5, Tr("WAITING"));
             } else {
                 if (Mode == MODE_SMART) {
-                    GLCD_print_buf2(5, Tr("FOR POWER", "OP VERMOGEN"));
+                    GLCD_print_buf2(5, Tr("FOR POWER"));
                 } else {
-                    GLCD_print_buf2(5, Tr("FOR SOLAR", "OP ZON"));
+                    GLCD_print_buf2(5, Tr("FOR SOLAR"));
                 }
             }
 
 #if MODEM
         } else if (State == STATE_MODEM_REQUEST || State == STATE_MODEM_WAIT || State == STATE_MODEM_DONE) {                                          // Modem states
-            GLCD_print_buf2(5, Tr("MODEM", "MODEM"));
+            GLCD_print_buf2(5, Tr("MODEM"));
 #endif
         } else if (AccessStatus == PAUSE) {
-                    GLCD_print_buf2(5, Tr("PAUSE", "PAUZE"));
+                    GLCD_print_buf2(5, Tr("PAUSE"));
         } else if (State != STATE_C) {
                 switch (Switching_Phases_C2) {
                     case NO_SWITCH:
-                        sprintf(Str, Tr("READY %u", "KLAAR %u"), ChargeDelay);
+                        sprintf(Str, Tr("READY %u"), ChargeDelay);
                         if (!ChargeDelay) Str[5] = '\0';
                         break;
                     case GOING_TO_SWITCH_1P:
@@ -1011,19 +950,19 @@ void GLCD(void) {
                 default:
                     LCDText = 0;
                     if (Mode != MODE_NORMAL) {
-                        sprintf(Str, "%s %uP", Mode == MODE_SOLAR ? Tr("SOLAR", "ZON") : Tr("SMART", "SLIM"), Nr_Of_Phases_Charging);
+                        sprintf(Str, "%s %uP", Mode == MODE_SOLAR ? Tr("SOLAR") : Tr("SMART"), Nr_Of_Phases_Charging);
                         GLCD_print_buf2(5, Str);
                         break;
                     } else LCDText++;
                     // fall through
                 case 1:
                     if (GridRelayOpen) {
-                        GLCD_print_buf2(5, Tr("LIMITED", "BEPERKT"));
+                        GLCD_print_buf2(5, Tr("LIMITED"));
                         break;
                     } else LCDText++;
                     // fall through
                 case 2:
-                    GLCD_print_buf2(5, Tr("CHARGING", "LADEN"));
+                    GLCD_print_buf2(5, Tr("CHARGING"));
                     break;
                 case 3:
                     if (EVMeter.Type) {
@@ -1060,16 +999,16 @@ void GLCD(void) {
 static const char *getMeterHostStr(const Meter &meter, uint8_t value) {
     static char Str[12]; // must be declared static, since it's referenced outside of function scope
     if (isMDNSDiscoveryInProgress()) { // If mDNS discovery is in progress, show "Discovering" for all options in the menu
-        return Tr("Discovering", "Zoeken...");
+        return Tr("Discovering");
     }
     if (value == 0) { //Manual discovery option selected, show "Discover" if discovery is not in progress, otherwise show "Discovering"
-        return Tr("Discover", "Zoek");
+        return Tr("Discover");
 
     }
     else if (value == 1) { //Currently stored host entry selected, show the host name stored for this meter, or "Not Set" if it's empty
-        if (strlen(meter.DeviceHostName) == 0) return Tr("Not Set", "Leeg");
+        if (strlen(meter.DeviceHostName) == 0) return Tr("Not Set");
         compileServiceName(meter.Type, meter.DeviceHostName, Str, sizeof(Str));
-        if (Str[0] == '\0') return Tr("Not Set", "Leeg");
+        if (Str[0] == '\0') return Tr("Not Set");
         return Str;
     }
     else{   //Discovered mDNS service selected ( value >= 2 ), show the host name of the selected mDNS entry
@@ -1080,7 +1019,7 @@ static const char *getMeterHostStr(const Meter &meter, uint8_t value) {
                 return Str;
             }
         }
-        return Tr("Not Set", "Leeg");
+        return Tr("Not Set");
     }
 }
 
@@ -1119,28 +1058,22 @@ const char * getMenuItemOption(uint8_t nav) {
     static char Str[12]; // must be declared static, since it's referenced outside of function scope
 
     // Text
-    const char *StrFixed    = Tr("Fixed", "Vast");
-    const char *StrSocket   = Tr("Socket", "Contact");
-    const char *StrSmart    = Tr("Smart", "Slim");
-    const char *StrNormal   = Tr("Normal", "Normaal");
-    const char *StrSolar    = Tr("Solar", "Zon");
-    const char *StrSolenoid = Tr("Solenoid", "Spoel");
+    const char *StrFixed    = Tr("Fixed");
+    const char *StrSocket   = Tr("Socket");
+    const char *StrSmart    = Tr("Smart");
+    const char *StrNormal   = Tr("Normal");
+    const char *StrSolar    = Tr("Solar");
+    const char *StrSolenoid = Tr("Solenoid");
     const char *StrMotor    = "Motor";
-    const char *StrDisabled = Tr("Disabled", "Uit");
+    const char *StrDisabled = Tr("Disabled");
     const static char StrLoadBl[9][9]  = {"Disabled", "Master", "Node 1", "Node 2", "Node 3", "Node 4", "Node 5", "Node 6", "Node 7"};
     const static char StrSwitch[8][11] = {"Disabled", "Access B", "Access S", "Sma-Sol B", "Sma-Sol S", "Grid Relay", "Custom B", "Custom S"};
-    const static char StrSwitchNL[8][11] = {"Uit", "Toegang B", "Toegang S", "Slim-Zon B", "Slim-Zon S", "Netrelais", "Eigen B", "Eigen S"};
     const static char StrGrid[2][10] = {"4Wire", "3Wire"};
-    const static char StrGridNL[2][10] = {"4-draads", "3-draads"};
-    const char *StrEnabled  = Tr("Enabled", "Aan");
+    const char *StrEnabled  = Tr("Enabled");
     const static char StrExitMenu[] = "MENU";
     extern const char StrRFIDReader[7][10];
-    const static char StrRFIDReaderNL[7][10] = {"Uit", "Alle pas", "Een pas", "Leren", "Wissen", "Wis alles", "Rmt/OCPP"};
-    const static char StrEnableC2NL[5][12] = {"Niet aanw.", "Altijd uit", "Zon uit", "Altijd aan", "Auto"};
     const static char StrWiFi[3][10] = {"Disabled", "Enabled", "SetupWifi"};
-    const static char StrWiFiNL[3][10] = {"Uit", "Aan", "Instellen"};
     const static char StrCapMode[][9] = {"Disabled", "Fixed", "Interval", "Flanders"};
-    const static char StrCapModeNL[][9] = {"Uit", "Vast", "Interval", "Vlaams"};
 
     unsigned int value = getItemValue(nav);
 
@@ -1149,7 +1082,7 @@ const char * getMenuItemOption(uint8_t nav) {
             sprintf(Str, "%2u C", value);
             return Str;
         case MENU_C2:
-            return Tr(StrEnableC2[value], StrEnableC2NL[value]);
+            return Tr(StrEnableC2[value]);
         case MENU_CONFIG:
             if (value) return StrFixed;
             else return StrSocket;
@@ -1161,7 +1094,7 @@ const char * getMenuItemOption(uint8_t nav) {
             sprintf(Str, "-%2u A", value);
             return Str;
         case MENU_CAPACITY_MODE:
-            return Tr(StrCapMode[value], StrCapModeNL[value]);
+            return Tr(StrCapMode[value]);
         case MENU_SUMMAINSTIME:
         case MENU_STOP:
             if (value) {
@@ -1169,8 +1102,7 @@ const char * getMenuItemOption(uint8_t nav) {
                 return Str;
             } else return StrDisabled;
         case MENU_LOADBL:
-            if (LoadBl == 0) return StrDisabled;
-            return StrLoadBl[LoadBl]; //TODO shouldnt this be [value] ?
+            return Tr(StrLoadBl[LoadBl]); //TODO shouldnt this be [value] ?
         case MENU_SUMMAINS:
             if (value)
                 sprintf(Str, "%2u A", value);
@@ -1189,7 +1121,7 @@ const char * getMenuItemOption(uint8_t nav) {
             else if (value == 2) return StrMotor;
             else return StrDisabled;
         case MENU_SWITCH:
-            return Tr(StrSwitch[value], StrSwitchNL[value]);
+            return Tr(StrSwitch[value]);
         case MENU_PAIRING:
             if (SubMenu) {
                 uint32_t tempPin = random(1, 1000000);                                 // generate random PIN 1-999999 when selecting sub menu
@@ -1197,7 +1129,7 @@ const char * getMenuItemOption(uint8_t nav) {
                 PairingPin = Str;
             } else {
                 PairingPin = "";
-                sprintf(Str, "%s", Tr("Create PIN", "Maak PIN"));
+                sprintf(Str, "%s", Tr("Create PIN"));
             }    
             return Str;
         case MENU_APPSERVER:        
@@ -1210,7 +1142,7 @@ const char * getMenuItemOption(uint8_t nav) {
         case MENU_CIRCUITMETER:
             return (const char*)EMConfig[value].Desc;
         case MENU_GRID:
-            return Tr(StrGrid[value], StrGridNL[value]);
+            return Tr(StrGrid[value]);
         case MENU_LCDPIN:
             sprintf(Str, "%04u", value);
             return Str;
@@ -1258,13 +1190,13 @@ const char * getMenuItemOption(uint8_t nav) {
             sprintf(Str, "%lu", pow_10[value]);
             return Str;
         case MENU_RFIDREADER:
-            return Tr(StrRFIDReader[value], StrRFIDReaderNL[value]);
+            return Tr(StrRFIDReader[value]);
         case MENU_WIFI:
         case MENU_SB2_WIFI:
-            return Tr(StrWiFi[value], StrWiFiNL[value]);
+            return Tr(StrWiFi[value]);
         case MENU_LEDMODE:
-            if (value) return Tr("Public", "Openbaar");
-            else return Tr("Standard", "Standaard");
+            if (value) return Tr("Public");
+            else return Tr("Standard");
         case MENU_EXIT:
             return StrExitMenu;
         default:
@@ -1571,13 +1503,13 @@ void GLCDMenu(uint8_t Buttons) {
     String HoldStr = "";
     switch (LCDNav) {
         case 1:
-            HoldStr = Tr("for Menu", "vast: menu");
+            HoldStr = Tr("for Menu");
             break;
         case MENU_OFF:
-            HoldStr = Tr("to Stop", "vast: stop");
+            HoldStr = Tr("to Stop");
             break;
         case MENU_ON:
-            HoldStr = Tr("to Start", "vast: start");
+            HoldStr = Tr("to Start");
             break;
         default:
             //so we are anything else then 1, MENU_OFF, MENU_ON
@@ -1600,7 +1532,7 @@ void GLCDMenu(uint8_t Buttons) {
     if (HoldStr != "") {
             glcd_clrln(0, 0x00);
             glcd_clrln(1, 0x04);                                                // horizontal line
-            GLCD_print_buf2(2, Tr("Hold 2 sec", "Houd 2 sec"));
+            GLCD_print_buf2(2, Tr("Hold 2 sec"));
             GLCD_print_buf2(4, HoldStr.c_str());
             glcd_clrln(6, 0x10);                                                // horizontal line
             glcd_clrln(7, 0x00);
