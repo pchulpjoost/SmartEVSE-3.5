@@ -187,6 +187,7 @@ uint8_t ColorSolar[3] = {255, 170, 0};    // Orange
 uint8_t ColorCustom[3] = {0, 0, 255};    // Blue
 
 uint8_t LedMode = 0;                                                            // LED color scheme. 0:Standard / 1:Public
+uint8_t Language = 0;                                                           // LCD and web interface language. 0:English / 1:Dutch
 
 //#define FW_UPDATE_DELAY 30        //DINGO TODO                                            // time between detection of new version and actual update in seconds
 #define FW_UPDATE_DELAY 3600                                                    // time between detection of new version and actual update in seconds

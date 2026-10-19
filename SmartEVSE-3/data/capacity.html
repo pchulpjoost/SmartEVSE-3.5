@@ -112,6 +112,77 @@
   });
 })();
 
+const I18N_NL = {
+ "…": "…",
+ "Back": "Terug",
+ "Capacity mode": "Capaciteitsmodus",
+ "Enable": "Schakel",
+ "only": "alleen",
+ "if your electricity provider has a capacity (peak kW) rate: exceeding a set power in a billing period costs more. Requires a Mains meter that feeds kWh data to the SmartEVSE.": "in als je energieleverancier een capaciteitstarief (piek-kW) heeft: boven een ingesteld vermogen uitkomen in een afrekenperiode kost meer. Vereist een meter op de aansluiting die kWh-gegevens aan de SmartEVSE levert.",
+ "Disabled": "Uit",
+ "Fixed": "Vast",
+ "Interval": "Interval",
+ "Flanders": "Vlaanderen",
+ "Max Sum Mains (A)": "Max som aansluiting (A)",
+ "Overall power limit in fixed mode.": "Totale vermogenslimiet in vaste modus.",
+ "Power limit intervals": "Intervallen voor vermogenslimiet",
+ "Add / edit interval": "Interval toevoegen / wijzigen",
+ "Time when this power limit becomes active (last interval continues until the next day)": "Tijdstip waarop deze vermogenslimiet ingaat (het laatste interval loopt door tot de volgende dag)",
+ "Start time": "Starttijd",
+ "Maximum allowed power from this time until the next interval": "Maximaal toegestaan vermogen vanaf dit tijdstip tot het volgende interval",
+ "Max power (W)": "Max vermogen (W)",
+ "e.g. 6000": "bijv. 6000",
+ "Cancel": "Annuleren",
+ "Add interval": "Interval toevoegen",
+ "Configured intervals": "Ingestelde intervallen",
+ "Start": "Start",
+ "Max power": "Max vermogen",
+ "No intervals defined yet. Add time-based power limits with the form above.": "Nog geen intervallen ingesteld. Voeg tijdgebonden vermogenslimieten toe met het formulier hierboven.",
+ "Clear all intervals": "Alle intervallen wissen",
+ "Request failed": "Verzoek mislukt",
+ "Edit": "Wijzig",
+ "Del": "Wis",
+ "Intervals saved": "Intervallen opgeslagen",
+ "Select a valid time": "Kies een geldige tijd",
+ "An interval already exists at this time": "Er bestaat al een interval op dit tijdstip",
+ "Update interval": "Interval bijwerken",
+ "Delete this interval?": "Dit interval verwijderen?",
+ "Failed to load settings": "Instellingen laden mislukt",
+ "Value must be between 10 and 600": "Waarde moet tussen 10 en 600 liggen",
+ "Clear ALL intervals? This cannot be undone.": "ALLE intervallen wissen? Dit kan niet ongedaan worden gemaakt."
+};
+/* Language: English is written in the page, Dutch translations are in I18N_NL.
+   The choice is made on the main page, stored on the device (setting "language")
+   and cached in localStorage "sevse-lang" so every page follows it. */
+let lang = "en";
+try { lang = localStorage.getItem("sevse-lang") === "nl" ? "nl" : "en"; } catch (e) {}
+const I18N_ORIG = new WeakMap();
+const I18N_EN = {};
+for (const k in I18N_NL) I18N_EN[I18N_NL[k]] = k;
+function t(s) { return lang === "nl" && Object.prototype.hasOwnProperty.call(I18N_NL, s) ? I18N_NL[s] : s; }
+function applyLang() {
+  document.documentElement.lang = lang;
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = w.nextNode())) {
+    if (/^(SCRIPT|STYLE|TEXTAREA|PRE)$/.test(n.parentNode.nodeName)) continue;
+    if (!I18N_ORIG.has(n)) {
+      // text set by a script in the other language: remember its English original
+      const v = n.nodeValue, k = v.trim();
+      I18N_ORIG.set(n, I18N_EN[k] !== undefined && !(k in I18N_NL) ? v.replace(k, () => I18N_EN[k]) : v);
+    }
+    const o = I18N_ORIG.get(n), k = o.trim();
+    if (k) n.nodeValue = o.replace(k, () => t(k.replace(/\s+/g, " ")));
+  }
+  document.querySelectorAll("[title]:not([data-dyn]),[placeholder]:not([data-dyn])").forEach((el) => {
+    if (!I18N_ORIG.has(el)) I18N_ORIG.set(el, { title: el.getAttribute("title"), placeholder: el.getAttribute("placeholder") });
+    const o = I18N_ORIG.get(el);
+    if (o.title !== null) el.setAttribute("title", t(o.title));
+    if (o.placeholder !== null) el.setAttribute("placeholder", t(o.placeholder));
+  });
+}
+window.addEventListener("storage", (e) => { if (e.key === "sevse-lang") location.reload(); });
+
 
 const $ = (id) => document.getElementById(id);
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
@@ -133,7 +204,7 @@ function postSettings(params) {
       for (const k in j) if (typeof j[k] === "string" && /not allowed|failed|Can only/i.test(j[k])) { toast(k + ": " + j[k]); return false; }
       return true;
     })
-    .catch(() => { toast("Request failed"); return false; });
+    .catch(() => { toast(t("Request failed")); return false; });
 }
 function fetchSettings() {
   return fetch("/settings", { cache: "no-store" })
@@ -170,8 +241,8 @@ function renderTable() {
     tr.innerHTML =
       "<td>" + h + ":" + m + "</td>" +
       "<td>" + iv.power.toLocaleString() + " W</td>" +
-      '<td><div class="actions"><button class="btn sm" data-edit="' + index + '">Edit</button>' +
-      '<button class="btn sm dgr" data-del="' + index + '">Del</button></div></td>';
+      '<td><div class="actions"><button class="btn sm" data-edit="' + index + '">' + t("Edit") + '</button>' +
+      '<button class="btn sm dgr" data-del="' + index + '">' + t("Del") + '</button></div></td>';
     tr.querySelector("[data-edit]").onclick = () => editInterval(index);
     tr.querySelector("[data-del]").onclick = () => deleteInterval(index);
     tbody.appendChild(tr);
@@ -180,15 +251,15 @@ function renderTable() {
 
 function saveToDevice() {
   postSettings(new URLSearchParams({ intervals: JSON.stringify(intervals) }))
-    .then((ok) => { if (ok) toast("Intervals saved"); });
+    .then((ok) => { if (ok) toast(t("Intervals saved")); });
 }
 
 function addOrUpdateInterval(timeStr, power, editIndex) {
   const parts = timeStr.split(":").map(Number);
-  if (isNaN(parts[0]) || isNaN(parts[1])) { toast("Select a valid time"); return false; }
+  if (isNaN(parts[0]) || isNaN(parts[1])) { toast(t("Select a valid time")); return false; }
   const startMinutes = parts[0] * 60 + parts[1];
   if (intervals.some((it, i) => it.start === startMinutes && i !== editIndex)) {
-    toast("An interval already exists at this time");
+    toast(t("An interval already exists at this time"));
     return false;
   }
   const entry = { start: startMinutes, power: parseInt(power) };
@@ -205,12 +276,12 @@ function editInterval(index) {
   $("start_time").value = String(Math.floor(item.start / 60)).padStart(2, "0") + ":" + String(item.start % 60).padStart(2, "0");
   $("power_limit").value = item.power;
   $("editIndex").value = index;
-  $("saveBtn").textContent = "Update interval";
+  $("saveBtn").textContent = t("Update interval");
   $("cancelEditBtn").classList.remove("hidden");
 }
 
 function deleteInterval(index) {
-  if (!confirm("Delete this interval?")) return;
+  if (!confirm(t("Delete this interval?"))) return;
   intervals.splice(index, 1);
   renderTable();
   saveToDevice();
@@ -219,7 +290,7 @@ function deleteInterval(index) {
 function resetForm() {
   $("intervalForm").reset();
   $("editIndex").value = -1;
-  $("saveBtn").textContent = "Add interval";
+  $("saveBtn").textContent = t("Add interval");
   $("cancelEditBtn").classList.add("hidden");
 }
 
@@ -234,13 +305,13 @@ function load() {
       if (d.settings.current_max_sum_mains !== undefined) $("current_max_sum_mains").value = d.settings.current_max_sum_mains;
     }
     toggleSections();
-  }).catch(() => toast("Failed to load settings"));
+  }).catch(() => toast(t("Failed to load settings")));
 }
 
 $("capacity_mode").onchange = (e) => { if (loaded) postSettings(new URLSearchParams({ capacity_mode: e.target.value })); toggleSections(); };
 $("current_max_sum_mains").onchange = (e) => {
   const v = parseInt(e.target.value);
-  if (isNaN(v) || v < 10 || v > 600) { toast("Value must be between 10 and 600"); load(); return; }
+  if (isNaN(v) || v < 10 || v > 600) { toast(t("Value must be between 10 and 600")); load(); return; }
   postSettings(new URLSearchParams({ current_max_sum_mains: v }));
 };
 $("intervalForm").onsubmit = (e) => {
@@ -249,12 +320,13 @@ $("intervalForm").onsubmit = (e) => {
 };
 $("cancelEditBtn").onclick = resetForm;
 $("btnClearAll").onclick = () => {
-  if (!confirm("Clear ALL intervals? This cannot be undone.")) return;
+  if (!confirm(t("Clear ALL intervals? This cannot be undone."))) return;
   intervals = [];
   renderTable();
   saveToDevice();
 };
 
+applyLang();
 load();
 </script>
   </body>

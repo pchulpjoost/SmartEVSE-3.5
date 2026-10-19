@@ -1292,6 +1292,7 @@ void read_settings() {
 #endif
         maxTemp = preferences.getUShort("maxTemp", MAX_TEMPERATURE);
         LedMode = preferences.getUChar("LedMode", 0);
+        Language = preferences.getUChar("Language", 0);
         OcppMode = preferences.getUChar("OcppMode", OCPP_MODE);
 
         preferences.end();                                  
@@ -1369,6 +1370,7 @@ void write_settings(void) {
     PREFS_PUT_USHORT_IF_CHANGED("LCDPin", LCDPin);
     PREFS_PUT_BOOL_IF_CHANGED("MQTTSmartServer", MQTTSmartServer);
     PREFS_PUT_UCHAR_IF_CHANGED("LedMode", LedMode);
+    PREFS_PUT_UCHAR_IF_CHANGED("Language", Language);
     PREFS_PUT_UCHAR_IF_CHANGED("OcppMode", OcppMode);
 
     _LOG_I("settings saved\n");
@@ -1638,6 +1640,7 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
         doc["settings"]["lock"] = Lock;
         doc["settings"]["cablelock"] = CableLock;
         doc["settings"]["ledmode"] = LedMode;
+        doc["settings"]["language"] = Language;
         doc["settings"]["capacity_mode"] = CapacityMode;
         String intervalsStr = GetIntervalString();
         doc["settings"]["intervals"] = serialized(intervalsStr);   // ArduinoJson magic: parse string as JSON
@@ -2006,6 +2009,15 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
                 LCDlock = lock;
                 shadowPrefs.markUChar("LCDlock", &LCDlock);
                 doc["lcdlock"] = lock;
+            }
+        }
+
+        if(request->hasParam("language")) {
+            int lang = request->getParam("language")->value().toInt();
+            if (lang >= 0 && lang <= 1) {                                   //boundary check
+                Language = lang;
+                shadowPrefs.markUChar("Language", &Language);
+                doc["language"] = lang;
             }
         }
 

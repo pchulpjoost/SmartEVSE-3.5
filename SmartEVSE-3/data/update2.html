@@ -169,6 +169,75 @@ header{position:sticky;top:0;z-index:10;background:var(--bg2);border-bottom:1px 
   });
 })();
 
+const I18N_NL = {
+ "Back": "Terug",
+ "Online firmware update": "Online firmware-update",
+ "Fetches a release directly from GitHub over the internet. The device reboots when finished (waits until no EV is charging).": "Haalt een release rechtstreeks via internet van GitHub. Het apparaat herstart als het klaar is (wacht tot er geen auto meer laadt).",
+ "Factory": "Fabriek",
+ "stable ·": "stabiel ·",
+ "release notes": "release-opmerkingen",
+ "Standard": "Standaard",
+ "Debug": "Debug",
+ "Community": "Community",
+ "bleeding edge ·": "nieuwste functies ·",
+ "Manual upload": "Handmatig uploaden",
+ "Flash a file from your computer, exactly named:": "Flash een bestand vanaf je computer, met precies deze naam:",
+ "or": "of",
+ "(bulk RFID whitelist). No spiffs.bin needed since 3.6.0-RC1; signed files verify as original since 3.6.2.": "(RFID-whitelist in bulk). Sinds 3.6.0-RC1 is spiffs.bin niet meer nodig; sinds 3.6.2 worden ondertekende bestanden als origineel geverifieerd.",
+ "Note: file upload only works over": "Let op: bestanden uploaden werkt alleen via",
+ "connections (not https).": "verbindingen (niet https).",
+ "Choose file…": "Kies bestand…",
+ "version unknown": "versie onbekend",
+ "offline?": "offline?",
+ "Firmware update completed. Rebooting as soon as no EV is connected.": "Firmware-update voltooid. Het apparaat herstart zodra er geen auto meer is aangesloten.",
+ "ERROR: firmware update failed. Check the connection and try again.": "FOUT: firmware-update mislukt. Controleer de verbinding en probeer het opnieuw.",
+ "Downloading:": "Downloaden:",
+ "bytes": "bytes",
+ "Update did not start. This device only accepts firmware from owners": "Update is niet gestart. Dit apparaat accepteert alleen firmware van eigenaren",
+ ", and the release server must be reachable.": ", en de releaseserver moet bereikbaar zijn.",
+ "Connecting to release server…": "Verbinden met releaseserver…",
+ "Starting update…": "Update starten…",
+ "Request failed.": "Verzoek mislukt.",
+ "Upload of": "Upload van",
+ "finished, device reboots. You can close this page.": "klaar, het apparaat herstart. Je kunt deze pagina sluiten.",
+ "Uploading": "Uploaden",
+ ", bytes": ", bytes",
+ "of": "van",
+ "Error: device rejected the file": "Fout: apparaat heeft het bestand geweigerd",
+ "Upload failed:": "Upload mislukt:"
+};
+/* Language: English is written in the page, Dutch translations are in I18N_NL.
+   The choice is made on the main page, stored on the device (setting "language")
+   and cached in localStorage "sevse-lang" so every page follows it. */
+let lang = "en";
+try { lang = localStorage.getItem("sevse-lang") === "nl" ? "nl" : "en"; } catch (e) {}
+const I18N_ORIG = new WeakMap();
+const I18N_EN = {};
+for (const k in I18N_NL) I18N_EN[I18N_NL[k]] = k;
+function t(s) { return lang === "nl" && Object.prototype.hasOwnProperty.call(I18N_NL, s) ? I18N_NL[s] : s; }
+function applyLang() {
+  document.documentElement.lang = lang;
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = w.nextNode())) {
+    if (/^(SCRIPT|STYLE|TEXTAREA|PRE)$/.test(n.parentNode.nodeName)) continue;
+    if (!I18N_ORIG.has(n)) {
+      // text set by a script in the other language: remember its English original
+      const v = n.nodeValue, k = v.trim();
+      I18N_ORIG.set(n, I18N_EN[k] !== undefined && !(k in I18N_NL) ? v.replace(k, () => I18N_EN[k]) : v);
+    }
+    const o = I18N_ORIG.get(n), k = o.trim();
+    if (k) n.nodeValue = o.replace(k, () => t(k.replace(/\s+/g, " ")));
+  }
+  document.querySelectorAll("[title]:not([data-dyn]),[placeholder]:not([data-dyn])").forEach((el) => {
+    if (!I18N_ORIG.has(el)) I18N_ORIG.set(el, { title: el.getAttribute("title"), placeholder: el.getAttribute("placeholder") });
+    const o = I18N_ORIG.get(el);
+    if (o.title !== null) el.setAttribute("title", t(o.title));
+    if (o.placeholder !== null) el.setAttribute("placeholder", t(o.placeholder));
+  });
+}
+window.addEventListener("storage", (e) => { if (e.key === "sevse-lang") location.reload(); });
+
 const OWNER_FACT = "SmartEVSE", REPO_FACT = "SmartEVSE-3";
 const OWNER_COMM = "dingo35", REPO_COMM = "SmartEVSE-3.5";
 const $id = (id) => document.getElementById(id);
@@ -191,7 +260,7 @@ function loadVersion() {
       $id("hd-serial").textContent = "-" + d.serialnr;
       $id("hd-meta").textContent = d.version;
     })
-    .catch(() => { $id("hd-meta").textContent = "version unknown"; });
+    .catch(() => { $id("hd-meta").textContent = t("version unknown"); });
 }
 
 
@@ -217,25 +286,25 @@ function fetchProgress() {
     .then((d) => {
       if (d.progress === -1) {
         stopProgress();
-        setStatus('<span class="ok">Firmware update completed. Rebooting as soon as no EV is connected.</span>');
+        setStatus('<span class="ok">' + t("Firmware update completed. Rebooting as soon as no EV is connected.") + '</span>');
       } else if (d.progress === -2) {
         stopProgress();
-        setStatus('<span class="err">ERROR: firmware update failed. Check the connection and try again.</span>');
+        setStatus('<span class="err">' + t("ERROR: firmware update failed. Check the connection and try again.") + '</span>');
       } else if (d.size > 0) {
         const pct = Math.min(100, (d.progress / d.size) * 100);
         $id("prog").classList.remove("hidden");
         $id("progbar").style.width = pct + "%";
-        setStatus("Downloading: " + d.progress.toLocaleString() + " / " + d.size.toLocaleString() +
-          " bytes (" + pct.toFixed(0) + "%)");
+        setStatus(t("Downloading:") + " " + d.progress.toLocaleString() + " / " + d.size.toLocaleString() +
+          " " + t("bytes") + " (" + pct.toFixed(0) + "%)");
       } else if (d.progress === 0) {
         
         if (Date.now() - updateStartStamp > UPDATE_START_TIMEOUT_MS) {
           stopProgress();
           enableButtons();
-          setStatus('<span class="err">Update did not start. This device only accepts firmware from owners' +
-            ' "' + OWNER_FACT + '" or "' + OWNER_COMM + '", and the release server must be reachable.</span>');
+          setStatus('<span class="err">' + t("Update did not start. This device only accepts firmware from owners") +
+            ' "' + OWNER_FACT + '" ' + t("or") + ' "' + OWNER_COMM + '"' + t(", and the release server must be reachable.") + '</span>');
         } else {
-          setStatus("Connecting to release server&hellip;");
+          setStatus(t("Connecting to release server\u2026"));
         }
       } else {
         
@@ -254,14 +323,14 @@ function updateFw(owner, dbg) {
   fetch("/autoupdate?owner=" + owner + "&debug=" + dbg)
     .then((r) => r.json())
     .then(() => {
-      setStatus("Starting update&hellip;");
+      setStatus(t("Starting update\u2026"));
       $id("prog").classList.remove("hidden");
       stopProgress();
       pollInterval = setInterval(fetchProgress, 1000);
     })
     .catch(() => {
       enableButtons();
-      setStatus('<span class="err">Request failed.</span>');
+      setStatus('<span class="err">' + t("Request failed.") + '</span>');
     });
 }
 $id("fw-fact").onclick = () => updateFw(OWNER_FACT, 0);
@@ -275,9 +344,9 @@ function sendFileData(name, data, chunkSize) {
     const chunk = data.subarray(offset, offset + chunkSize);
     const url = "/update?offset=" + offset + "&file=" + encodeURIComponent(name) + "&size=" + data.length;
     if (offset + chunk.length >= data.length)
-      setStatus("Upload of " + name + " finished, device reboots. You can close this page.");
+      setStatus(t("Upload of") + " " + esc(name) + " " + t("finished, device reboots. You can close this page."));
     else
-      setStatus("Uploading " + name + ", bytes " + offset + ".." + (offset + chunk.length) + " of " + data.length);
+      setStatus(t("Uploading") + " " + esc(name) + t(", bytes") + " " + offset + ".." + (offset + chunk.length) + " " + t("of") + " " + data.length);
     $id("mprog").classList.remove("hidden");
     $id("mprogbar").style.width = (offset + chunk.length) / data.length * 100 + "%";
     fetch(url, { method: "POST", body: chunk })
@@ -290,12 +359,12 @@ function sendFileData(name, data, chunkSize) {
         }
         const code = parseInt(text, 10);
         if (!isNaN(code) && code < 0) {
-          setStatus('<span class="err">Error: device rejected the file (' + code + ").</span>");
+          setStatus('<span class="err">' + t("Error: device rejected the file") + " (" + code + ").</span>");
           return;
         }
         if (chunk.length > 0) sendChunk(offset + chunk.length);
       })
-      .catch((e) => setStatus('<span class="err">Upload failed: ' + esc(e.message) + "</span>"));
+      .catch((e) => setStatus('<span class="err">' + t("Upload failed:") + " " + esc(e.message) + "</span>"));
   };
   sendChunk(0);
 }
@@ -312,6 +381,7 @@ $id("fileInput").onchange = (ev) => {
   };
 };
 
+applyLang();
 loadVersion();
 ghLatest(OWNER_FACT, REPO_FACT, "latest_fact");
 ghLatest(OWNER_COMM, REPO_COMM, "latest_comm");
